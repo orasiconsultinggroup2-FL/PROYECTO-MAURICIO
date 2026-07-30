@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Control de Asistencia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg-deep:#122B40;
+    --bg-panel:#173C57;
+    --bg-panel-raised:#1E4A69;
+    --line:#2E5A78;
+    --paper:#EAF1F3;
+    --ink:#EAF1F3;
+    --ink-dim:#9FB8C9;
+    --accent:#E8672B;
+    --accent-dim:#B94F1F;
+    --ok:#3FA66B;
+    --ok-dim:#2A7049;
+    --warn:#F0A93B;
+    --bad:#D9534F;
+    --radius:14px;
+    --mono:'IBM Plex Mono', monospace;
+    --sans:'IBM Plex Sans', sans-serif;
+    --display:'Space Grotesk', sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:var(--bg-deep);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:28px 28px;
+    background-position:center;
+    color:var(--ink);
+    font-family:var(--sans);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+  }
+  #app{
+    width:100%;
+    max-width:480px;
+    min-height:100vh;
+    background:linear-gradient(180deg, rgba(18,43,64,0.4), rgba(18,43,64,0.94) 90px);
+    padding:0 0 40px 0;
+    position:relative;
+  }
+  header.topbar{
+    padding:22px 20px 14px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .brand .kicker{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.12em;
+    color:var(--accent);
+    text-transform:uppercase;
+  }
+  .brand h1{
+    font-family:var(--display);
+    font-size:19px;
+    margin:0;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }
+  .logout-btn{
+    background:none; border:1px solid var(--line); color:var(--ink-dim);
+    font-family:var(--mono); font-size:11px; padding:7px 12px; border-radius:20px;
+    cursor:pointer;
+  }
+  .logout-btn:hover{border-color:var(--accent); color:var(--accent);}
+  main{padding:24px 20px;}
+
+  /* ---- Login ---- */
+  .login-wrap{
+    display:flex; flex-direction:column; align-items:center;
+    padding-top:12vh;
+    text-align:center;
+  }
+  .seal{
+    width:88px; height:88px; border-radius:50%;
+    border:2px solid var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom:22px;
+    position:relative;
+  }
+  .seal::before{
+    content:'';
+    position:absolute; inset:8px;
+    border:1px dashed var(--accent-dim);
+    border-radius:50%;
+  }
+  .seal svg{width:38px; height:38px;}
+  .login-wrap .kicker{font-family:var(--mono); font-size:11px; letter-spacing:0.14em; color:var(--ink-dim); text-transform:uppercase; margin-bottom:6px;}
+  .login-wrap h1{font-family:var(--display); font-size:26px; margin:0 0 30px 0; font-weight:600;}
+  .pin-display{
+    display:flex; gap:12px; margin-bottom:26px;
+  }
+  .pin-dot{
+    width:16px; height:16px; border-radius:50%; border:1.5px solid var(--line);
+    transition:all .15s ease;
+  }
+  .pin-dot.filled{background:var(--accent); border-color:var(--accent);}
+  .keypad{
+    display:grid; grid-template-columns:repeat(3, 64px); gap:14px;
+    margin-bottom:22px;
+  }
+  .keypad button{
+    width:64px; height:64px; border-radius:50%;
+    background:var(--bg-panel); border:1px solid var(--line);
+    color:var(--ink); font-family:var(--mono); font-size:20px;
+    cursor:pointer;
+  }
+  .keypad button:active{background:var(--bg-panel-raised); border-color:var(--accent);}
+  .keypad button.ghost{background:none; border:none; color:var(--ink-dim); font-size:14px;}
+  .error-msg{color:var(--bad); font-family:var(--mono); font-size:12.5px; min-height:18px; margin-bottom:6px;}
+
+  /* ---- Cards / generic ---- */
+  .card{
+    background:var(--bg-panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:18px; margin-bottom:16px;
+  }
+  .card h2{font-family:var(--display); font-size:15px; margin:0 0 12px 0; font-weight:600; letter-spacing:-0.01em;}
+  .row-between{display:flex; justify-content:space-between; align-items:center;}
+  .muted{color:var(--ink-dim); font-size:13px;}
+  .mono{font-family:var(--mono);}
+
+  .punch-btn{
+    width:100%; padding:22px 0; border-radius:var(--radius); border:none;
+    font-family:var(--display); font-size:18px; font-weight:600; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    margin-bottom:10px;
+  }
+  .punch-btn.in{background:var(--ok); color:#08281a;}
+  .punch-btn.out{background:var(--accent); color:#2a1206;}
+  .punch-btn:disabled{opacity:0.5; cursor:wait;}
+  .punch-btn .sub{font-family:var(--mono); font-size:11px; font-weight:400; opacity:0.85;}
+
+  .status-pill{
+    font-family:var(--mono); font-size:11px; padding:3px 9px; border-radius:20px;
+    display:inline-flex; align-items:center; gap:5px;
+  }
+  .status-pill.ok{background:rgba(63,166,107,0.18); color:var(--ok);}
+  .status-pill.bad{background:rgba(217,83,79,0.18); color:var(--bad);}
+  .status-pill.warn{background:rgba(240,169,59,0.18); color:var(--warn);}
+
+  .entry-item{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 0; border-bottom:1px solid var(--line);
+  }
+  .entry-item:last-child{border-bottom:none;}
+  .entry-left{display:flex; flex-direction:column; gap:2px;}
+  .entry-type{font-size:13.5px; font-weight:600;}
+  .entry-time{font-family:var(--mono); font-size:11.5px; color:var(--ink-dim);}
+
+  .tabs{display:flex; gap:6px; margin-bottom:18px; border-bottom:1px solid var(--line); padding-bottom:0;}
+  .tab{
+    background:none; border:none; color:var(--ink-dim); font-family:var(--mono); font-size:11.5px;
+    padding:8px 4px; cursor:pointer; border-bottom:2px solid transparent; text-transform:uppercase; letter-spacing:0.04em;
+  }
+  .tab.active{color:var(--accent); border-bottom-color:var(--accent);}
+
+  label{display:block; font-family:var(--mono); font-size:11px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;}
+  input, select, textarea{
+    width:100%; background:var(--bg-panel-raised); border:1px solid var(--line); color:var(--ink);
+    border-radius:8px; padding:11px 12px; font-family:var(--sans); font-size:14px; margin-bottom:14px;
+  }
+  textarea{resize:vertical; min-height:60px;}
+  .btn{
+    width:100%; padding:13px 0; border-radius:8px; border:none; background:var(--accent); color:#2a1206;
+    font-family:var(--display); font-weight:600; font-size:14.5px; cursor:pointer;
+  }
+  .btn.secondary{background:var(--bg-panel-raised); color:var(--ink); border:1px solid var(--line);}
+  .btn:disabled{opacity:0.5;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th{text-align:left; font-family:var(--mono); font-size:10.5px; color:var(--ink-dim); text-transform:uppercase; padding:6px 4px; border-bottom:1px solid var(--line);}
+  td{padding:8px 4px; border-bottom:1px solid var(--line);}
+
+  .empty-state{text-align:center; padding:20px 10px; color:var(--ink-dim); font-size:13px;}
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--bg-panel-raised); border:1px solid var(--accent); color:var(--ink);
+    padding:12px 18px; border-radius:10px; font-size:13px; max-width:90%; z-index:50;
+    box-shadow:0 8px 30px rgba(0,0,0,0.4);
+  }
+  .nav-bottom{
+    position:sticky; bottom:0; display:flex; border-top:1px solid var(--line);
+    background:var(--bg-deep);
+  }
+  .nav-bottom button{
+    flex:1; background:none; border:none; color:var(--ink-dim); padding:13px 0;
+    font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.04em; cursor:pointer;
+  }
+  .nav-bottom button.active{color:var(--accent);}
+
+  /* ---- Desktop / laptop layout (admin) ---- */
+  .side-nav{ display:none; }
+  .body-row{ display:block; }
+  .grid-2{ display:block; }
+
+  @media (min-width: 900px){
+    body{ align-items:flex-start; padding-top:36px; }
+    #app{
+      max-width:1180px;
+      min-height:auto;
+      border:1px solid var(--line);
+      border-radius:18px;
+      overflow:hidden;
+      background:linear-gradient(180deg, rgba(18,43,64,0.5), rgba(18,43,64,0.97) 140px);
+      box-shadow:0 30px 80px rgba(0,0,0,0.45);
+    }
+    header.topbar{ padding:26px 32px; }
+    .body-row{
+      display:flex;
+      align-items:stretch;
+      min-height:640px;
+    }
+    .nav-bottom{ display:none; }
+    .side-nav{
+      display:flex; flex-direction:column; gap:4px;
+      width:190px; flex-shrink:0;
+      border-right:1px solid var(--line);
+      padding:22px 12px;
+    }
+    .side-nav button{
+      text-align:left; background:none; border:none; color:var(--ink-dim);
+      padding:12px 14px; border-radius:8px; cursor:pointer;
+      font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:0.05em;
+    }
+    .side-nav button.active{ background:var(--bg-panel-raised); color:var(--accent); }
+    .side-nav button:hover{ color:var(--ink); }
+    main{ flex:1; padding:28px 32px; max-height:none; overflow-y:visible; }
+    .grid-2{ display:grid; grid-template-columns:1.1fr 0.9fr; gap:20px; align-items:start; }
+    .card{ padding:22px; }
+    table{ font-size:13.5px; }
+    .login-wrap{ padding-top:8vh; }
+  }
+
+  @media print{
+    body{ background:#fff !important; }
+    .side-nav, .nav-bottom, .toast{ display:none !important; }
+    header.topbar{ display:none; }
+    #app{ box-shadow:none; border:none; background:#fff !important; max-width:100%; }
+    .card{ background:#fff !important; border:1px solid #999 !important; color:#111 !important; }
+    table, th, td{ color:#111 !important; }
+    th{ color:#333 !important; border-color:#999 !important; }
+    td{ border-color:#ccc !important; }
+    input, select, textarea, .btn{ display:none !important; }
+  }
+
+  /* ---- Escáner QR ---- */
+  .scanner-overlay{
+    position:fixed; inset:0; background:#04121e; z-index:80;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+  }
+  .scanner-overlay video{
+    width:min(340px, 86vw); height:min(340px, 86vw); object-fit:cover;
+    border-radius:16px; border:2px solid var(--accent);
+  }
+  .scanner-label{ font-family:var(--display); font-size:16px; color:var(--ink); text-align:center; padding:0 24px; }
+  .scanner-sub{ font-family:var(--mono); font-size:11.5px; color:var(--ink-dim); text-align:center; padding:0 30px; }
+  .scanner-cancel{
+    background:none; border:1px solid var(--line); color:var(--ink-dim);
+    padding:10px 22px; border-radius:24px; font-family:var(--mono); font-size:12px; cursor:pointer;
+  }
+
+  /* ---- Pantalla de QR (admin) ---- */
+  .qr-display{
+    display:flex; flex-direction:column; align-items:center; gap:14px; padding:20px 10px;
+  }
+  .qr-box{ background:#fff; padding:18px; border-radius:14px; }
+  .qr-date{ font-family:var(--mono); font-size:12px; color:var(--ink-dim); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const SUPABASE_URL = "https://leobfhqdgiaqosxifirb.supabase.co";
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxlb2JmaHFkZ2lhcW9zeGlmaXJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MjM5NTQsImV4cCI6MjEwMDk5OTk1NH0.GXKKKjFf84FezDuwzh3F0mdk40buoHTImNK1PBNoZbQ";
+
+async function rpc(fn, body){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': ANON_KEY,
+      'Authorization': `Bearer ${ANON_KEY}`
+    },
+    body: JSON.stringify(body || {})
+  });
+  const text = await res.text();
+  let data;
+  try { data = text ? JSON.parse(text) : null; } catch(e){ data = text; }
+  if(!res.ok){
+    const msg = (data && (data.message || data.hint)) || 'Error de servidor';
+    throw new Error(msg);
+  }
+  return data;
+}
+
+const state = {
+  view: 'login',
+  pin: '',
+  loginError: '',
+  loading: false,
+  session: null, // { employee_id, full_name, role, job_position }
+  toast: null,
+  adminTab: 'hoy',
+  adminToday: [],
+  adminEmployees: [],
+  reportRows: [],
+  reportFrom: isoDaysAgo(30),
+  reportTo: isoDaysAgo(0),
+  newEmployee: {name:'', position:'', email:'', pin:'', role:'employee'},
+  scanning: { active:false, type:null },
+  qrToday: null, // { qr_date, token }
+};
+let _scanStream = null;
+let _scanRAF = null;
+
+function isoDaysAgo(n){
+  const d = new Date(); d.setDate(d.getDate()-n);
+  return d.toISOString().slice(0,10);
+}
+function fmtTime(ts){
+  const d = new Date(ts);
+  return d.toLocaleString('es-PE', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+}
+function showToast(msg, ms=3200){
+  state.toast = msg; render();
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>{ state.toast=null; render(); }, ms);
+}
+
+// ---------- LOGIN ----------
+async function pressDigit(d){
+  if(state.pin.length >= 6) return;
+  state.pin += d;
+  state.loginError = '';
+  render();
+  if(state.pin.length >= 4){
+    // auto-attempt once they have 4+, but only fire when they stop at natural lengths
+  }
+}
+function backspace(){ state.pin = state.pin.slice(0,-1); render(); }
+async function submitPin(){
+  if(state.pin.length < 4) { state.loginError = 'Ingresa al menos 4 dígitos'; render(); return; }
+  state.loading = true; render();
+  try{
+    const rows = await rpc('login_pin', {p_pin: state.pin});
+    if(!rows || rows.length === 0){
+      state.loginError = 'PIN incorrecto';
+      state.pin = '';
+    } else {
+      state.session = rows[0];
+      state.pin = '';
+      state.view = state.session.role === 'admin' ? 'admin' : 'employee';
+      if(state.view === 'admin') state.adminTab = 'fichar';
+    }
+  } catch(e){
+    state.loginError = e.message;
+  }
+  state.loading = false; render();
+}
+function logout(){
+  state.session = null; state.view = 'login'; state.pin=''; state.loginError='';
+  render();
+}
+
+// ---------- EMPLOYEE ----------
+// Nota de seguridad/UX: para no pedir el PIN en cada acción, lo guardamos solo en memoria de la sesión JS (nunca en localStorage).
+function sessionPin(){ return state._pin; }
+
+async function startScan(type){
+  state.scanning = { active:true, type };
+  render();
+  try{
+    _scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+  }catch(e){
+    console.error('Cámara no disponible:', e);
+    state.scanning = { active:false, type:null };
+    showToast('No se pudo acceder a la cámara. Verifica el permiso de cámara en el navegador.');
+    render();
+    return;
+  }
+  const video = document.getElementById('scan-video');
+  if(!video){ stopScan(); return; }
+  video.srcObject = _scanStream;
+  await video.play().catch(()=>{});
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const tick = () => {
+    if(!state.scanning.active) return;
+    if(video.readyState === video.HAVE_ENOUGH_DATA){
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = window.jsQR ? jsQR(imgData.data, imgData.width, imgData.height) : null;
+      if(code && code.data){
+        const scannedType = state.scanning.type;
+        stopScan();
+        confirmPunchQR(scannedType, code.data.trim());
+        return;
+      }
+    }
+    _scanRAF = requestAnimationFrame(tick);
+  };
+  _scanRAF = requestAnimationFrame(tick);
+}
+function stopScan(){
+  state.scanning = { active:false, type:null };
+  if(_scanRAF){ cancelAnimationFrame(_scanRAF); _scanRAF = null; }
+  if(_scanStream){ _scanStream.getTracks().forEach(t=>t.stop()); _scanStream = null; }
+  render();
+}
+async function confirmPunchQR(type, token){
+  state.loading = true; render();
+  try{
+    const result = await rpc('fichar_qr', {
+      p_employee_id: state.session.employee_id,
+      p_pin: sessionPin(),
+      p_entry_type: type,
+      p_token: token
+    });
+    const r = result[0];
+    const hora = fmtTime(r.entry_timestamp);
+    showToast(`${type==='in'?'Entrada':'Salida'} registrada a las ${hora}.`);
+  }catch(e){
+    console.error('confirmPunchQR error:', e);
+    showToast('Error: '+(e && e.message ? e.message : 'no se pudo registrar el fichaje'));
+  }
+  state.loading = false; render();
+}
+
+// ---------- ADMIN ----------
+async function loadAdminData(){
+  try{
+    state.adminToday = await rpc('admin_estado_hoy', {p_employee_id: state.session.employee_id, p_pin: sessionPin()});
+  }catch(e){ showToast('Error: '+e.message); }
+  render();
+}
+async function loadAdminEmployees(){
+  try{
+    state.adminEmployees = await rpc('admin_listar_empleados', {p_employee_id: state.session.employee_id, p_pin: sessionPin()});
+  }catch(e){ showToast('Error: '+e.message); }
+  render();
+}
+async function createEmployee(){
+  const ne = state.newEmployee;
+  if(!ne.name || !ne.pin || ne.pin.length < 4){ showToast('Nombre y PIN (mín. 4 dígitos) son obligatorios'); return; }
+  state.loading = true; render();
+  try{
+    await rpc('admin_crear_empleado', {
+      p_employee_id: state.session.employee_id, p_pin: sessionPin(),
+      p_full_name: ne.name, p_position: ne.position, p_email: ne.email,
+      p_new_pin: ne.pin, p_role: ne.role
+    });
+    showToast('Empleado creado.');
+    state.newEmployee = {name:'', position:'', email:'', pin:'', role:'employee'};
+    await loadAdminEmployees();
+  }catch(e){ showToast('Error: '+e.message); }
+  state.loading = false; render();
+}
+async function toggleActive(id, active){
+  try{
+    await rpc('admin_desactivar_empleado', {p_employee_id: state.session.employee_id, p_pin: sessionPin(), p_target_id: id, p_active: !active});
+    await loadAdminEmployees();
+  }catch(e){ showToast('Error: '+e.message); }
+}
+async function loadReport(){
+  state.loading = true; render();
+  try{
+    state.reportRows = await rpc('admin_reporte_fichajes', {
+      p_employee_id: state.session.employee_id, p_pin: sessionPin(),
+      p_desde: state.reportFrom, p_hasta: state.reportTo
+    });
+  }catch(e){ showToast('Error: '+e.message); }
+  state.loading = false; render();
+}
+function exportCSV(){
+  if(!state.reportRows.length){ showToast('No hay datos para exportar.'); return; }
+  const header = ['Empleado','Cargo','Tipo','Fecha y hora'];
+  const rows = state.reportRows.map(r => [
+    r.employee_full_name, r.job_position||'', r.entry_type==='in'?'Entrada':'Salida',
+    fmtTime(r.entry_timestamp)
+  ]);
+  const csv = [header, ...rows].map(row => row.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\\n');
+  const blob = new Blob(["\\uFEFF"+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `reporte_asistencia_${state.reportFrom}_a_${state.reportTo}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function printReport(){ window.print(); }
+
+// override submitPin to store pin in session memory before clearing
+const _origSubmitPin = submitPin;
+submitPin = async function(){
+  const enteredPin = state.pin;
+  if(enteredPin.length < 4) { state.loginError = 'Ingresa al menos 4 dígitos'; render(); return; }
+  state.loading = true; render();
+  try{
+    const rows = await rpc('login_pin', {p_pin: enteredPin});
+    if(!rows || rows.length === 0){
+      state.loginError = 'PIN incorrecto';
+      state.pin = '';
+    } else {
+      state.session = rows[0];
+      state._pin = enteredPin;
+      state.pin = '';
+      state.view = state.session.role === 'admin' ? 'admin' : 'employee';
+      if(state.view === 'admin') state.adminTab = 'fichar';
+    }
+  } catch(e){
+    state.loginError = e.message;
+  }
+  state.loading = false; render();
+};
+
+// ---------- RENDER ----------
+function h(tag, attrs, children){
+  attrs = attrs || {};
+  let s = `<${tag} `;
+  for(const k in attrs){ if(attrs[k]!==undefined && attrs[k]!==null) s += `${k}="${attrs[k]}" `; }
+  s += '>' + (children||'') + `</${tag}>`;
+  return s;
+}
+
+function renderLogin(){
+  const dots = [0,1,2,3,4,5].map(i => `<div class="pin-dot ${i < state.pin.length ? 'filled':''}"></div>`).join('');
+  return `
+  <div class="login-wrap">
+    <div class="seal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#E8672B" stroke-width="1.6">
+        <path d="M12 2 L20 6 V12 C20 17 16.5 20.5 12 22 C7.5 20.5 4 17 4 12 V6 Z"/>
+        <path d="M9 12 L11 14 L15.5 9" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="kicker">Consultoría de Ingeniería</div>
+    <h1>Control de Asistencia</h1>
+    <div class="pin-display">${dots}</div>
+    <div class="error-msg">${state.loginError}</div>
+    <div class="keypad">
+      ${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="pressDigit('${n}')">${n}</button>`).join('')}
+      <button class="ghost" onclick="backspace()">Borrar</button>
+      <button onclick="pressDigit('0')">0</button>
+      <button class="ghost" onclick="submitPin()">Entrar →</button>
+    </div>
+    <div class="muted mono" style="font-size:11px;">Ingresa tu PIN de 4 a 6 dígitos</div>
+  </div>`;
+}
+
+function renderTopbar(subtitle){
+  return `
+  <header class="topbar">
+    <div class="brand">
+      <div class="kicker">${state.session.role==='admin' ? 'Panel administrador' : 'Registro de asistencia'}</div>
+      <h1>${state.session.full_name}</h1>
+    </div>
+    <button class="logout-btn" onclick="logout()">Salir</button>
+  </header>`;
+}
+
+function renderEmployeeView(){
+  const body = `
+    <div class="card">
+      <button class="punch-btn in" ${state.loading?'disabled':''} onclick="startScan('in')">
+        Marcar Entrada
+        <span class="sub">Escanea el código QR de la oficina</span>
+      </button>
+      <button class="punch-btn out" ${state.loading?'disabled':''} onclick="startScan('out')">
+        Marcar Salida
+        <span class="sub">Escanea el código QR de la oficina</span>
+      </button>
+    </div>`;
+  return `
+    ${renderTopbar()}
+    <main>${body}</main>`;
+}
+
+function renderQRSVG(text){
+  if(!window.qrcode) return '<div class="empty-state">No se pudo cargar el generador de QR.</div>';
+  try{
+    const qr = qrcode(0, 'M');
+    qr.addData(text);
+    qr.make();
+    return qr.createSvgTag({cellSize:6, margin:8});
+  }catch(e){
+    console.error('QR render error:', e);
+    return '<div class="empty-state">Error generando el código.</div>';
+  }
+}
+async function loadQRToday(){
+  try{
+    const rows = await rpc('admin_obtener_qr_hoy', {p_employee_id: state.session.employee_id, p_pin: sessionPin()});
+    state.qrToday = rows[0];
+  }catch(e){ showToast('Error: '+e.message); }
+  render();
+}
+async function regenerarQR(){
+  state.loading = true; render();
+  try{
+    const rows = await rpc('admin_regenerar_qr_hoy', {p_employee_id: state.session.employee_id, p_pin: sessionPin()});
+    state.qrToday = rows[0];
+    showToast('Nuevo código generado. El anterior ya no funciona.');
+  }catch(e){ showToast('Error: '+e.message); }
+  state.loading = false; render();
+}
+
+function renderAdminView(){
+  let body = '';
+  if(state.adminTab === 'fichar'){
+    body = `
+    <div class="card">
+      <button class="punch-btn in" ${state.loading?'disabled':''} onclick="startScan('in')">
+        Marcar Entrada
+        <span class="sub">Escanea el código QR de la oficina</span>
+      </button>
+      <button class="punch-btn out" ${state.loading?'disabled':''} onclick="startScan('out')">
+        Marcar Salida
+        <span class="sub">Escanea el código QR de la oficina</span>
+      </button>
+    </div>`;
+  } else if(state.adminTab === 'hoy'){
+    body = `
+    <div class="card">
+      <div class="row-between"><h2 style="margin:0;">Estado de hoy</h2><button class="logout-btn" onclick="loadAdminData()">Actualizar</button></div>
+      ${state.adminToday.length ? state.adminToday.map(e => `
+        <div class="entry-item">
+          <div class="entry-left">
+            <div class="entry-type">${e.full_name}</div>
+            <div class="entry-time mono">${e.job_position||''} · ${e.last_entry_timestamp ? fmtTime(e.last_entry_timestamp) : 'sin fichajes'}</div>
+          </div>
+          <span class="status-pill ${!e.last_entry_type ? 'bad' : e.last_entry_type==='in' ? 'ok' : 'warn'}">
+            ${!e.last_entry_type ? 'Sin marcar' : e.last_entry_type==='in' ? 'Dentro' : 'Salió'}
+          </span>
+        </div>`).join('') : '<div class="empty-state">Sin empleados activos.</div>'}
+    </div>`;
+  } else if(state.adminTab === 'qr'){
+    body = `
+    <div class="card">
+      <h2>Código QR del día</h2>
+      <p class="muted">Muéstralo en una pantalla o imprímelo y colócalo en la entrada de la oficina. Cambia automáticamente cada día — el de ayer deja de funcionar solo.</p>
+      <div class="qr-display">
+        ${state.qrToday ? `
+          <div class="qr-box">${renderQRSVG(state.qrToday.token)}</div>
+          <div class="qr-date">Válido para el ${state.qrToday.qr_date}</div>
+          <button class="btn secondary" ${state.loading?'disabled':''} onclick="regenerarQR()">Generar un código nuevo ahora</button>
+        ` : '<div class="empty-state">Cargando código…</div>'}
+      </div>
+    </div>`;
+  } else if(state.adminTab === 'reportes'){
+    body = `
+    <div class="card">
+      <h2>Reporte por rango de fechas</h2>
+      <label>Desde</label>
+      <input type="date" value="${state.reportFrom}" onchange="state.reportFrom=this.value">
+      <label>Hasta</label>
+      <input type="date" value="${state.reportTo}" onchange="state.reportTo=this.value">
+      <button class="btn" ${state.loading?'disabled':''} onclick="loadReport()">Generar reporte</button>
+      ${state.reportRows.length ? `
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <button class="btn secondary" style="flex:1;" onclick="exportCSV()">Exportar Excel (CSV)</button>
+        <button class="btn secondary" style="flex:1;" onclick="printReport()">Imprimir / PDF</button>
+      </div>
+      <div style="overflow-x:auto; margin-top:14px;">
+        <table>
+          <tr><th>Empleado</th><th>Tipo</th><th>Fecha y hora</th></tr>
+          ${state.reportRows.map(r=>`<tr>
+            <td>${r.employee_full_name}</td>
+            <td>${r.entry_type==='in'?'Entrada':'Salida'}</td>
+            <td class="mono">${fmtTime(r.entry_timestamp)}</td>
+          </tr>`).join('')}
+        </table>
+      </div>` : ''}
+    </div>`;
+  } else if(state.adminTab === 'equipo'){
+    const ne = state.newEmployee;
+    body = `
+    <div class="grid-2">
+    <div class="card">
+      <h2>Agregar empleado</h2>
+      <label>Nombre completo</label>
+      <input value="${ne.name}" onchange="state.newEmployee.name=this.value" placeholder="Nombre y apellido">
+      <label>Cargo</label>
+      <input value="${ne.position}" onchange="state.newEmployee.position=this.value" placeholder="Ej: Ingeniero Estructural">
+      <label>Correo (opcional)</label>
+      <input value="${ne.email}" onchange="state.newEmployee.email=this.value">
+      <label>PIN de acceso (4-6 dígitos)</label>
+      <input value="${ne.pin}" maxlength="6" onchange="state.newEmployee.pin=this.value.replace(/[^0-9]/g,'')" placeholder="Ej: 1234">
+      <label>Rol</label>
+      <select onchange="state.newEmployee.role=this.value">
+        <option value="employee" ${ne.role==='employee'?'selected':''}>Empleado</option>
+        <option value="admin" ${ne.role==='admin'?'selected':''}>Administrador</option>
+      </select>
+      <button class="btn" ${state.loading?'disabled':''} onclick="createEmployee()">Crear empleado</button>
+    </div>
+    <div class="card">
+      <h2>Equipo</h2>
+      ${state.adminEmployees.length ? state.adminEmployees.map(e=>`
+        <div class="entry-item">
+          <div class="entry-left">
+            <div class="entry-type">${e.full_name} ${e.role==='admin'?' · admin':''}</div>
+            <div class="entry-time mono">${e.job_position||''}</div>
+          </div>
+          <button class="logout-btn" onclick="toggleActive('${e.out_id}', ${e.active})">${e.active?'Desactivar':'Activar'}</button>
+        </div>`).join('') : '<div class="empty-state">Cargando equipo…</div>'}
+    </div>
+    </div>`;
+  }
+  const navBtns = (cls) => `
+      <button class="${state.adminTab==='fichar'?'active':''}" onclick="switchAdminTab('fichar')">Marcar</button>
+      <button class="${state.adminTab==='hoy'?'active':''}" onclick="switchAdminTab('hoy')">Hoy</button>
+      <button class="${state.adminTab==='qr'?'active':''}" onclick="switchAdminTab('qr')">QR</button>
+      <button class="${state.adminTab==='reportes'?'active':''}" onclick="switchAdminTab('reportes')">Reportes</button>
+      <button class="${state.adminTab==='equipo'?'active':''}" onclick="switchAdminTab('equipo')">Equipo</button>`;
+  return `
+    ${renderTopbar()}
+    <div class="body-row">
+      <nav class="side-nav">${navBtns()}</nav>
+      <main>${body}</main>
+    </div>
+    <div class="nav-bottom">${navBtns()}</div>`;
+}
+async function switchAdminTab(t){
+  state.adminTab = t; render();
+  if(t==='qr') await loadQRToday();
+  if(t==='equipo') await loadAdminEmployees();
+}
+
+function render(){
+  const app = document.getElementById('app');
+  let html = '';
+  if(state.view === 'login') html = renderLogin();
+  else if(state.view === 'employee') html = renderEmployeeView();
+  else if(state.view === 'admin') html = renderAdminView();
+  if(state.toast) html += `<div class="toast">${state.toast}</div>`;
+  if(state.scanning.active){
+    html += `
+    <div class="scanner-overlay">
+      <div class="scanner-label">Escanea el código QR de la oficina</div>
+      <div class="scanner-sub">Para marcar: ${state.scanning.type==='in'?'Entrada':'Salida'}</div>
+      <video id="scan-video" autoplay playsinline muted></video>
+      <button class="scanner-cancel" onclick="stopScan()">Cancelar</button>
+    </div>`;
+  }
+  app.innerHTML = html;
+}
+render();
+</script>
+</body>
+</html>
